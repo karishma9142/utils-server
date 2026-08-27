@@ -24,6 +24,7 @@ cloudnary.v2.config({
     api_secret : CLOUD_API_SECRET
 })
 
+app.use('/api' ,uploadRoutes);
 const PORT = process.env.PORT || 3002;
 
 app.listen(PORT , ()=> {
