@@ -13,6 +13,7 @@ app.use(express.urlencoded({limit : "50mb" , extended:true}));
 
 
 const {CLOUD_NAME ,CLOUD_API_KEY ,CLOUD_API_SECRET } = process.env;
+console.log({ CLOUD_NAME, CLOUD_API_KEY, CLOUD_API_SECRET: CLOUD_API_SECRET?.slice(0,4) + '...' });
 
 if(!CLOUD_API_KEY || !CLOUD_API_SECRET || !CLOUD_NAME){
     throw new Error('Missing Cloudinary enviroment variable');
