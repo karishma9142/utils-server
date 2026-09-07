@@ -76,87 +76,120 @@ export const verifyRazorpayPayment = async (req: Request, res: Response) => {
     })
 };
 
-import dotenv from 'dotenv';
-import Stripe from 'Stripe';
+import Stripe from "stripe";
 
 const stripe = new Stripe(process.env.STRIPE_KEY_SECRET!);
 
-export const payWithStripe = async (req: Request, res: Response) => {
+export const payWithStripe = async (
+    req: Request,
+    res: Response
+) => {
     try {
         const { orderId } = req.body;
 
-        const url = `${process.env.RESTAURANT_SERVICE}/api/order/payment/${orderId}`;
+        if (!orderId) {
+            return res.status(400).json({
+                msg: "Order ID is required"
+            });
+        }
 
-        // console.log("Calling URL:", url);
-        // console.log("Order ID:", orderId);
+        const url = `${process.env.RESTAURANT_SERVICE}/api/order/payment/${orderId}`;
 
         const { data } = await axios.get(url, {
             headers: {
-                "x-internal-key": process.env.INTERNAL_SERVICE_KAY
+                "x-internal-key": process.env.INTERNAL_SERVICE_KEY
             }
         });
-        // console.log("Restaurant response:", data);
 
         const session = await stripe.checkout.sessions.create({
-            payment_method_types : ['cart'],
-            mode : 'payment',
-            line_items : [
+            payment_method_types: ["card"],
+
+            mode: "payment",
+
+            line_items: [
                 {
-                    price_data : {
-                        currency : 'inr' ,
-                        product_data : {
-                            name : 'Cravio food delivery'
+                    price_data: {
+                        currency: "inr",
+
+                        product_data: {
+                            name: "Cravio Food Delivery"
                         },
-                        unit_amount : data.amount * 100,
+
+                        unit_amount: Math.round(data.amount * 100)
                     },
-                    quantity : 1,
+
+                    quantity: 1
                 }
             ],
-            metadata : {
-                orderId,
+
+            metadata: {
+                orderId
             },
-            success_url : `${process.env.FRONTED_URL}/ordersuccess?session_id={CHECKOUT_SESSION}`,
-            cancel_url : `${process.env.FRONTED_URL}/checkout`,
+
+            success_url:
+                `${process.env.FRONTEND_URL}/ordersuccess?session_id={CHECKOUT_SESSION_ID}`,
+
+            cancel_url:
+                `${process.env.FRONTEND_URL}/checkout`
         });
-        res.json({
-            url : session.url
-        })
+
+        return res.json({
+            url: session.url
+        });
+
     } catch (error) {
-        res.status(500).json({
-            msg : 'stripe payment failed'
-        })
+        console.error("Stripe payment error:", error);
+
+        return res.status(500).json({
+            msg: "Stripe payment failed"
+        });
     }
 };
-
-export const verifyStripe = async (req:Request , res:Response) => {
-    const {sessionId} = req.body;
+export const verifyStripe = async (
+    req: Request,
+    res: Response
+) => {
+    const { sessionId } = req.body;
 
     try {
-        const session = await stripe.checkout.sessions.retrieve(sessionId);
-        if(!session){
+        if (!sessionId) {
             return res.status(400).json({
-                msg : "Payment verifiaction failed",
+                msg: "Session ID is required"
+            });
+        }
+
+        const session = await stripe.checkout.sessions.retrieve(sessionId);
+
+        // IMPORTANT: Check actual payment status
+        if (session.payment_status !== "paid") {
+            return res.status(400).json({
+                msg: "Payment verification failed"
             });
         }
 
         const orderId = session.metadata?.orderId;
-        if(!orderId){
+
+        if (!orderId) {
             return res.status(400).json({
-                msg : 'order not found in stripe session'
-            })
+                msg: "Order not found in Stripe session"
+            });
         }
 
         await publishPaymentSuccess({
             orderId,
-            paymentId : sessionId,
-            provider : 'stripe'
+            paymentId: session.payment_intent as string,
+            provider: "stripe"
         });
-        res.json({
-            msg : 'payment verified successful'
-        })
+
+        return res.json({
+            msg: "Payment verified successfully"
+        });
+
     } catch (error) {
-        res.status(500).json({
-            msg : "stripe payment failed"
-        })
+        console.error("Stripe verification error:", error);
+
+        return res.status(500).json({
+            msg: "Stripe payment verification failed"
+        });
     }
-}
+};
