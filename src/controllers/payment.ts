@@ -97,7 +97,7 @@ export const payWithStripe = async (
 
         const { data } = await axios.get(url, {
             headers: {
-                "x-internal-key": process.env.INTERNAL_SERVICE_KEY
+                "x-internal-key": process.env.INTERNAL_SERVICE_KAY
             }
         });
 
